@@ -15,7 +15,7 @@ from modules.matching.service import MatchingService
 from modules.matching.store import InMemoryMatchingStore
 from modules.rides.models import Ride
 from modules.students.models import Student
-from modules.users.models import BetterAuthUser
+from modules.users.models import UserRecord
 from modules.vehicles.models import Vehicle
 
 
@@ -34,9 +34,9 @@ def db_session():
     db = TestingSessionLocal()
     db.add_all(
         [
-            BetterAuthUser(id="student-user"),
-            BetterAuthUser(id="driver-user"),
-            BetterAuthUser(id="other-user"),
+            UserRecord(id="student-user"),
+            UserRecord(id="driver-user"),
+            UserRecord(id="other-user"),
         ]
     )
     db.commit()

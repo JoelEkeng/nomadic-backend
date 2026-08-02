@@ -20,7 +20,7 @@ from modules.students.service import (
     StudentNotVerifiedError,
     StudentService,
 )
-from modules.users.models import BetterAuthUser
+from modules.users.models import UserRecord
 
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
@@ -51,8 +51,8 @@ def db_session():
     db = TestingSessionLocal()
     db.add_all(
         [
-            BetterAuthUser(id="betterauth-user-1"),
-            BetterAuthUser(id="betterauth-user-2"),
+            UserRecord(id="betterauth-user-1"),
+            UserRecord(id="betterauth-user-2"),
         ]
     )
     db.commit()

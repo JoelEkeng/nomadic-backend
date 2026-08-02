@@ -20,7 +20,7 @@ from modules.payments.models import (  # noqa: F401
 from modules.rides.models import Ride  # noqa: F401
 from modules.safety.models import EmergencyAlert, SafetyReport, TripShareToken  # noqa: F401
 from modules.students.models import Student, StudentFavouriteLocation  # noqa: F401
-from modules.users.models import UserProfile  # noqa: F401
+from modules.users.models import UserProfile, UserRecord  # noqa: F401
 from modules.vehicles.models import Vehicle  # noqa: F401
 
 config = context.config
@@ -33,8 +33,8 @@ target_metadata = Base.metadata
 
 
 def include_object(object_, name, type_, reflected, compare_to):
-    # Added "verification", "account", and "session" to your existing "user" exception
-    ignored_tables = {"user", "verification", "account", "session"}
+    # Ignore BetterAuth legacy tables that may still exist in the database
+    ignored_tables = {"verification", "account", "session"}
     return not (type_ == "table" and name in ignored_tables)
 
 

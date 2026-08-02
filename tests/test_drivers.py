@@ -14,7 +14,7 @@ from modules.drivers.models import Driver
 from modules.drivers.repository import DriverRepository
 from modules.drivers.schemas import DriverOnboardingCreate
 from modules.drivers.service import DriverService
-from modules.users.models import BetterAuthUser
+from modules.users.models import UserRecord
 from modules.vehicles.models import Vehicle
 
 
@@ -33,9 +33,9 @@ def db_session():
     db = TestingSessionLocal()
     db.add_all(
         [
-            BetterAuthUser(id="betterauth-user-1"),
-            BetterAuthUser(id="betterauth-user-2"),
-            BetterAuthUser(id="betterauth-user-3"),
+            UserRecord(id="betterauth-user-1"),
+            UserRecord(id="betterauth-user-2"),
+            UserRecord(id="betterauth-user-3"),
         ]
     )
     db.commit()

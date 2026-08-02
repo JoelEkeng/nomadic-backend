@@ -15,7 +15,7 @@ from modules.payments.models import RidePayment, Wallet
 from modules.payments.service import PaymentService
 from modules.rides.models import Ride
 from modules.students.models import Student
-from modules.users.models import BetterAuthUser
+from modules.users.models import UserRecord
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
 
@@ -32,9 +32,9 @@ def db_session():
     db = TestingSessionLocal()
     db.add_all(
         [
-            BetterAuthUser(id="student-user"),
-            BetterAuthUser(id="driver-user"),
-            BetterAuthUser(id="admin-user"),
+            UserRecord(id="student-user"),
+            UserRecord(id="driver-user"),
+            UserRecord(id="admin-user"),
         ]
     )
     db.commit()

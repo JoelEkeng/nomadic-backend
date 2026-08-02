@@ -10,7 +10,7 @@ from core.auth import AuthenticatedUser, get_current_user
 from core.database import Base, get_db
 from main import app
 from modules.drivers.models import Driver
-from modules.users.models import BetterAuthUser
+from modules.users.models import UserRecord
 from modules.vehicles.models import Vehicle
 
 
@@ -29,9 +29,9 @@ def db_session():
     db = TestingSessionLocal()
     db.add_all(
         [
-            BetterAuthUser(id="driver-user-1"),
-            BetterAuthUser(id="driver-user-2"),
-            BetterAuthUser(id="admin-user"),
+            UserRecord(id="driver-user-1"),
+            UserRecord(id="driver-user-2"),
+            UserRecord(id="admin-user"),
         ]
     )
     db.flush()

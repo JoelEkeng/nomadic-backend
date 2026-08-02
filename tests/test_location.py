@@ -14,7 +14,7 @@ from modules.drivers.repository import DriverRepository
 from modules.location.api import get_location_service
 from modules.location.service import LocationService
 from modules.location.store import InMemoryLocationStore
-from modules.users.models import BetterAuthUser
+from modules.users.models import UserRecord
 
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
@@ -32,10 +32,10 @@ def db_session():
     db = TestingSessionLocal()
     db.add_all(
         [
-            BetterAuthUser(id="driver-user-1"),
-            BetterAuthUser(id="driver-user-2"),
-            BetterAuthUser(id="student-user"),
-            BetterAuthUser(id="admin-user"),
+            UserRecord(id="driver-user-1"),
+            UserRecord(id="driver-user-2"),
+            UserRecord(id="student-user"),
+            UserRecord(id="admin-user"),
         ]
     )
     db.flush()

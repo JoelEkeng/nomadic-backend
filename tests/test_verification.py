@@ -27,7 +27,7 @@ from modules.matching.service import MatchingService
 from modules.matching.store import InMemoryMatchingStore
 from modules.rides.models import Ride
 from modules.students.models import Student
-from modules.users.models import BetterAuthUser
+from modules.users.models import UserRecord
 from modules.vehicles.models import Vehicle
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
@@ -49,9 +49,9 @@ def db_session():
     db = TestingSessionLocal()
     db.add_all(
         [
-            BetterAuthUser(id=STUDENT_USER),
-            BetterAuthUser(id=DRIVER_USER),
-            BetterAuthUser(id=STRANGER_USER),
+            UserRecord(id=STUDENT_USER),
+            UserRecord(id=DRIVER_USER),
+            UserRecord(id=STRANGER_USER),
         ]
     )
     db.commit()

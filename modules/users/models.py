@@ -18,21 +18,19 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from core.database import Base
 
 
-class BetterAuthUser(Base):
-    """Backend view of BetterAuth's user table.
+class UserRecord(Base):
+    """Lightweight local record of Clerk users for FK integrity.
 
-    BetterAuth owns authentication, but the API keeps the authenticated user row
-    synchronized so every domain table can safely reference it.
+    Clerk is the source of truth for authentication. This table only stores
+    the minimal data needed to maintain foreign key relationships.
     """
 
     __tablename__ = "user"
 
     id: Mapped[str] = mapped_column(String(255), primary_key=True)
-    auth_provider_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     email: Mapped[str | None] = mapped_column(String(320), nullable=True)
-    phone_number: Mapped[str | None] = mapped_column(String(32), nullable=True)
     role: Mapped[str] = mapped_column(String(32), nullable=False, default="passenger", server_default="passenger")
-    emailVerified: Mapped[bool] = mapped_column(
+    email_verified: Mapped[bool] = mapped_column(
         nullable=False, default=False, server_default="false"
     )
     created_at: Mapped[datetime] = mapped_column(
@@ -99,4 +97,4 @@ class UserProfile(Base):
         onupdate=func.now(),
     )
 
-    user: Mapped[BetterAuthUser] = relationship(back_populates="profile")
+    user: Mapped[UserRecord] = relationship(back_populates="profile")

@@ -1,8 +1,8 @@
-"""add_student_auto_bootstrap_fields
+"""Auth with clerk
 
-Revision ID: d6f16fd85e7c
+Revision ID: 24f5415b5d7e
 Revises: None
-Create Date: 2026-08-02 10:46:32.985812
+Create Date: 2026-08-02 18:56:01.861869
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'd6f16fd85e7c'
+revision: str = '24f5415b5d7e'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -72,6 +72,15 @@ def upgrade() -> None:
     )
     op.create_index('ix_reconciliation_run_at', 'reconciliation_reports', ['run_at'], unique=False)
     op.create_index('ix_reconciliation_status', 'reconciliation_reports', ['status'], unique=False)
+    op.create_table('user',
+    sa.Column('id', sa.String(length=255), nullable=False),
+    sa.Column('email', sa.String(length=320), nullable=True),
+    sa.Column('role', sa.String(length=32), server_default='passenger', nullable=False),
+    sa.Column('email_verified', sa.Boolean(), server_default='false', nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.PrimaryKeyConstraint('id')
+    )
     op.create_table('drivers',
     sa.Column('id', sa.String(length=36), nullable=False),
     sa.Column('user_id', sa.String(length=255), nullable=False),
@@ -318,6 +327,30 @@ def upgrade() -> None:
     op.create_index('ix_driver_earnings_driver_id', 'driver_earnings', ['driver_id'], unique=False)
     op.create_index('ix_driver_earnings_payout_status', 'driver_earnings', ['payout_status'], unique=False)
     op.create_index('ix_driver_earnings_ride_id', 'driver_earnings', ['ride_id'], unique=True)
+    op.create_table('emergency_alerts',
+    sa.Column('id', sa.String(length=36), nullable=False),
+    sa.Column('user_id', sa.String(length=255), nullable=False),
+    sa.Column('ride_id', sa.String(length=36), nullable=True),
+    sa.Column('driver_id', sa.String(length=36), nullable=True),
+    sa.Column('alert_type', sa.String(length=32), nullable=False),
+    sa.Column('latitude', sa.Float(), nullable=True),
+    sa.Column('longitude', sa.Float(), nullable=True),
+    sa.Column('message', sa.Text(), nullable=True),
+    sa.Column('status', sa.String(length=32), server_default='active', nullable=False),
+    sa.Column('resolved_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.CheckConstraint("alert_type IN ('campus_security', 'police', 'live_location', 'general')", name='ck_emergency_alerts_type'),
+    sa.CheckConstraint("status IN ('active', 'acknowledged', 'resolved', 'cancelled')", name='ck_emergency_alerts_status'),
+    sa.ForeignKeyConstraint(['driver_id'], ['drivers.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['ride_id'], ['rides.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['user_id'], ['user.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index('ix_emergency_alerts_created_at', 'emergency_alerts', ['created_at'], unique=False)
+    op.create_index('ix_emergency_alerts_ride_id', 'emergency_alerts', ['ride_id'], unique=False)
+    op.create_index('ix_emergency_alerts_status', 'emergency_alerts', ['status'], unique=False)
+    op.create_index('ix_emergency_alerts_user_id', 'emergency_alerts', ['user_id'], unique=False)
     op.create_table('ride_payments',
     sa.Column('id', sa.String(length=36), nullable=False),
     sa.Column('ride_id', sa.String(length=36), nullable=False),
@@ -350,6 +383,32 @@ def upgrade() -> None:
     op.create_index('ix_ride_payments_ride_id', 'ride_payments', ['ride_id'], unique=True)
     op.create_index('ix_ride_payments_status', 'ride_payments', ['status'], unique=False)
     op.create_index('ix_ride_payments_student_id', 'ride_payments', ['student_id'], unique=False)
+    op.create_table('safety_reports',
+    sa.Column('id', sa.String(length=36), nullable=False),
+    sa.Column('user_id', sa.String(length=255), nullable=False),
+    sa.Column('ride_id', sa.String(length=36), nullable=True),
+    sa.Column('driver_id', sa.String(length=36), nullable=True),
+    sa.Column('category', sa.String(length=32), nullable=False),
+    sa.Column('description', sa.Text(), nullable=True),
+    sa.Column('attachments', sa.Text(), nullable=True),
+    sa.Column('latitude', sa.Float(), nullable=True),
+    sa.Column('longitude', sa.Float(), nullable=True),
+    sa.Column('status', sa.String(length=32), server_default='pending', nullable=False),
+    sa.Column('is_deleted', sa.Boolean(), server_default=sa.text('false'), nullable=False),
+    sa.Column('resolved_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.CheckConstraint("category IN ('unsafe_driving', 'driver_misconduct', 'vehicle_issue', 'wrong_route', 'harassment', 'accident', 'other')", name='ck_safety_reports_category'),
+    sa.CheckConstraint("status IN ('pending', 'investigating', 'resolved', 'dismissed')", name='ck_safety_reports_status'),
+    sa.ForeignKeyConstraint(['driver_id'], ['drivers.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['ride_id'], ['rides.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['user_id'], ['user.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index('ix_safety_reports_created_at', 'safety_reports', ['created_at'], unique=False)
+    op.create_index('ix_safety_reports_ride_id', 'safety_reports', ['ride_id'], unique=False)
+    op.create_index('ix_safety_reports_status', 'safety_reports', ['status'], unique=False)
+    op.create_index('ix_safety_reports_user_id', 'safety_reports', ['user_id'], unique=False)
     op.create_table('transactions',
     sa.Column('id', sa.String(length=36), nullable=False),
     sa.Column('reference', sa.String(length=64), nullable=False),
@@ -383,6 +442,22 @@ def upgrade() -> None:
     op.create_index('ix_transactions_source_wallet', 'transactions', ['source_wallet_id'], unique=False)
     op.create_index('ix_transactions_status', 'transactions', ['status'], unique=False)
     op.create_index('ix_transactions_target_wallet', 'transactions', ['target_wallet_id'], unique=False)
+    op.create_table('trip_share_tokens',
+    sa.Column('id', sa.String(length=36), nullable=False),
+    sa.Column('ride_id', sa.String(length=36), nullable=False),
+    sa.Column('user_id', sa.String(length=255), nullable=False),
+    sa.Column('token', sa.String(length=64), nullable=False),
+    sa.Column('is_active', sa.Boolean(), server_default='true', nullable=False),
+    sa.Column('expires_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.ForeignKeyConstraint(['ride_id'], ['rides.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['user_id'], ['user.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('token')
+    )
+    op.create_index('ix_trip_share_tokens_ride_id', 'trip_share_tokens', ['ride_id'], unique=False)
+    op.create_index('ix_trip_share_tokens_token', 'trip_share_tokens', ['token'], unique=True)
+    op.create_index('ix_trip_share_tokens_user_id', 'trip_share_tokens', ['user_id'], unique=False)
     op.create_table('refunds',
     sa.Column('id', sa.String(length=36), nullable=False),
     sa.Column('payment_id', sa.String(length=36), nullable=False),
@@ -415,6 +490,10 @@ def downgrade() -> None:
     op.drop_index('ix_refunds_payment_id', table_name='refunds')
     op.drop_index('ix_refunds_idempotency_key', table_name='refunds')
     op.drop_table('refunds')
+    op.drop_index('ix_trip_share_tokens_user_id', table_name='trip_share_tokens')
+    op.drop_index('ix_trip_share_tokens_token', table_name='trip_share_tokens')
+    op.drop_index('ix_trip_share_tokens_ride_id', table_name='trip_share_tokens')
+    op.drop_table('trip_share_tokens')
     op.drop_index('ix_transactions_target_wallet', table_name='transactions')
     op.drop_index('ix_transactions_status', table_name='transactions')
     op.drop_index('ix_transactions_source_wallet', table_name='transactions')
@@ -423,12 +502,22 @@ def downgrade() -> None:
     op.drop_index('ix_transactions_idempotency_key', table_name='transactions')
     op.drop_index('ix_transactions_created_at', table_name='transactions')
     op.drop_table('transactions')
+    op.drop_index('ix_safety_reports_user_id', table_name='safety_reports')
+    op.drop_index('ix_safety_reports_status', table_name='safety_reports')
+    op.drop_index('ix_safety_reports_ride_id', table_name='safety_reports')
+    op.drop_index('ix_safety_reports_created_at', table_name='safety_reports')
+    op.drop_table('safety_reports')
     op.drop_index('ix_ride_payments_student_id', table_name='ride_payments')
     op.drop_index('ix_ride_payments_status', table_name='ride_payments')
     op.drop_index('ix_ride_payments_ride_id', table_name='ride_payments')
     op.drop_index('ix_ride_payments_idempotency', table_name='ride_payments')
     op.drop_index('ix_ride_payments_driver_id', table_name='ride_payments')
     op.drop_table('ride_payments')
+    op.drop_index('ix_emergency_alerts_user_id', table_name='emergency_alerts')
+    op.drop_index('ix_emergency_alerts_status', table_name='emergency_alerts')
+    op.drop_index('ix_emergency_alerts_ride_id', table_name='emergency_alerts')
+    op.drop_index('ix_emergency_alerts_created_at', table_name='emergency_alerts')
+    op.drop_table('emergency_alerts')
     op.drop_index('ix_driver_earnings_ride_id', table_name='driver_earnings')
     op.drop_index('ix_driver_earnings_payout_status', table_name='driver_earnings')
     op.drop_index('ix_driver_earnings_driver_id', table_name='driver_earnings')
@@ -473,6 +562,7 @@ def downgrade() -> None:
     op.drop_index('ix_drivers_license_number', table_name='drivers')
     op.drop_index('ix_drivers_availability_online', table_name='drivers')
     op.drop_table('drivers')
+    op.drop_table('user')
     op.drop_index('ix_reconciliation_status', table_name='reconciliation_reports')
     op.drop_index('ix_reconciliation_run_at', table_name='reconciliation_reports')
     op.drop_table('reconciliation_reports')

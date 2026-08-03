@@ -1,3 +1,5 @@
+import logging
+
 from sqlalchemy.exc import IntegrityError
 
 from core.auth import AuthenticatedUser
@@ -28,8 +30,7 @@ class StudentConflictError(StudentError):
     pass
 
 
-class StudentNotVerifiedError(StudentError):
-    pass
+logger = logging.getLogger(__name__)
 
 
 class StudentForbiddenError(StudentError):
@@ -63,10 +64,6 @@ class StudentService:
             raise StudentForbiddenError(
                 f"Role '{user.role}' is not allowed to create a student profile"
             )
-        if not user.email_verified:
-            raise StudentNotVerifiedError(
-                "Email must be verified before a student profile can be created"
-            )
 
     def _build_profile_data(self, user: AuthenticatedUser) -> dict:
         first_name, last_name = split_full_name(user.name)
@@ -87,19 +84,28 @@ class StudentService:
         """
         existing = self.repository.get_by_user_id(user.id)
         if existing is not None:
+            logger.info("Student profile lookup succeeded: user_id=%s profile_id=%s", user.id, existing.id)
             return existing
 
         self._validate_can_bootstrap(user)
         data = self._build_profile_data(user)
 
         try:
-            return self.repository.create(user.id, data)
+            created = self.repository.create(user.id, data)
+            logger.info("Student profile auto-created: user_id=%s profile_id=%s", user.id, created.id)
+            return created
         except IntegrityError:
             self.repository.db.rollback()
             # Another request likely created the profile concurrently. Re-fetch.
             existing = self.repository.get_by_user_id(user.id)
             if existing is not None:
+                logger.info(
+                    "Student profile race resolved by refetch: user_id=%s profile_id=%s",
+                    user.id,
+                    existing.id,
+                )
                 return existing
+            logger.exception("Student profile auto-create failed: user_id=%s", user.id)
             raise StudentConflictError(
                 "Student profile could not be created"
             ) from None

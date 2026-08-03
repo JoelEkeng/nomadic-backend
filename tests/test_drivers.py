@@ -61,6 +61,25 @@ def client(db_session):
     app.dependency_overrides.clear()
 
 
+@pytest.fixture()
+def driver_client(db_session):
+    def override_get_db():
+        yield db_session
+
+    async def override_current_user():
+        return AuthenticatedUser(
+            id="betterauth-user-1",
+            role="driver",
+            phone_number="+233555000222",
+        )
+
+    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_user] = override_current_user
+    with TestClient(app) as test_client:
+        yield test_client
+    app.dependency_overrides.clear()
+
+
 def create_driver(db_session, user_id: str = "betterauth-user-1") -> Driver:
     service = DriverService(DriverRepository(db_session))
     return service.complete_onboarding(
@@ -105,6 +124,43 @@ def test_complete_driver_onboarding(client):
     assert body["verification_status"] == "pending"
     assert body["availability_status"] == "unavailable"
     assert body["online_status"] is False
+
+
+def test_get_driver_profile_auto_creates_pending_profile(driver_client):
+    response = driver_client.get("/drivers/profile")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["user_id"] == "betterauth-user-1"
+    assert body["phone_number"] == "+233555000222"
+    assert body["verification_status"] == "pending"
+    assert body["availability_status"] == "unavailable"
+    assert body["online_status"] is False
+
+
+def test_get_driver_profile_rejects_non_driver_role(client):
+    response = client.get("/drivers/profile")
+
+    assert response.status_code == 403
+
+
+def test_onboarding_updates_auto_created_pending_profile(driver_client):
+    created = driver_client.get("/drivers/profile").json()
+
+    response = driver_client.post(
+        "/drivers/onboarding",
+        json={
+            "license_number": "DL-BOOTSTRAP",
+            "license_expiry": str(date.today() + timedelta(days=365)),
+        },
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["id"] == created["id"]
+    assert body["phone_number"] == "+233555000222"
+    assert body["license_number"] == "DL-BOOTSTRAP"
+    assert body["verification_status"] == "pending"
 
 
 def test_complete_driver_onboarding_rejects_duplicate(client, db_session):

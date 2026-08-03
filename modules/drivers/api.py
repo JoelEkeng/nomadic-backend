@@ -69,12 +69,17 @@ def get_driver_profile(
     current_user: AuthenticatedUser = Depends(get_current_user),
     service: DriverService = Depends(get_driver_service),
 ) -> DriverProfileResponse:
-    try:
-        return service.get_profile(current_user.id)
-    except DriverNotFoundError as exc:
+    if not current_user.is_driver:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Driver profile not found",
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Requires driver role",
+        )
+    try:
+        return service.ensure_profile(current_user.id, current_user.phone_number)
+    except DriverConflictError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Driver profile could not be created",
         ) from exc
 
 

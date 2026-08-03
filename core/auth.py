@@ -158,13 +158,18 @@ class AuthenticatedUser:
 def _extract_bearer_token(request: Request) -> str:
     """Extract Bearer token from the Authorization header."""
     auth_header = request.headers.get("Authorization", "")
-    if not auth_header.startswith("Bearer "):
+    scheme, _, token = auth_header.partition(" ")
+    if scheme.lower() != "bearer" or not token.strip():
+        logger.warning(
+            "JWT auth failed: missing_or_invalid_authorization_header path=%s",
+            request.url.path,
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing or invalid Authorization header",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    return auth_header[7:]
+    return token.strip()
 
 
 def _decode_clerk_jwt(token: str) -> dict[str, Any]:
@@ -176,6 +181,8 @@ def _decode_clerk_jwt(token: str) -> dict[str, Any]:
             "verify_exp": True,
             "verify_iat": True,
             "verify_nbf": True,
+            "verify_aud": bool(CLERK_AUDIENCE),
+            "verify_iss": bool(CLERK_ISSUER),
         }
 
         kwargs: dict[str, Any] = {
@@ -189,24 +196,34 @@ def _decode_clerk_jwt(token: str) -> dict[str, Any]:
             kwargs["audience"] = CLERK_AUDIENCE
 
         payload = jwt.decode(token, signing_key, **kwargs)
+        logger.debug(
+            "JWT validation succeeded: sub=%s iss=%s aud=%s",
+            payload.get("sub"),
+            payload.get("iss"),
+            payload.get("aud"),
+        )
         return payload
 
     except jwt.ExpiredSignatureError:
+        logger.warning("JWT validation failed: expired_token")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token has expired",
         )
     except jwt.InvalidIssuerError:
+        logger.warning("JWT validation failed: invalid_issuer expected=%s", CLERK_ISSUER)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token issuer",
         )
     except jwt.InvalidAudienceError:
+        logger.warning("JWT validation failed: invalid_audience expected=%s", CLERK_AUDIENCE)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token audience",
         )
     except jwt.DecodeError:
+        logger.warning("JWT validation failed: decode_error")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token",
@@ -340,7 +357,7 @@ async def get_current_user(
 
     _sync_user_record(db, authenticated)
 
-    logger.debug("Authenticated user: id=%s role=%s", user_id, role)
+    logger.info("Authenticated Clerk user: id=%s role=%s email_verified=%s", user_id, role, email_verified)
     return authenticated
 
 

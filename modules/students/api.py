@@ -21,7 +21,6 @@ from modules.students.service import (
     StudentConflictError,
     StudentForbiddenError,
     StudentNotFoundError,
-    StudentNotVerifiedError,
     StudentService,
 )
 
@@ -54,11 +53,6 @@ def get_student_profile(
 ) -> StudentProfileResponse:
     try:
         return service.ensure_profile(current_user)
-    except StudentNotVerifiedError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Email must be verified before accessing student profile",
-        ) from exc
     except StudentForbiddenError as exc:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -81,11 +75,6 @@ def update_student_profile(
         # Ensure profile exists before patching; PATCH never creates a profile.
         service.ensure_profile(current_user)
         return service.update_academic_information(current_user.id, payload)
-    except StudentNotVerifiedError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Email must be verified before updating student profile",
-        ) from exc
     except StudentForbiddenError as exc:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

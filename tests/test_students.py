@@ -17,7 +17,6 @@ from modules.students.repository import StudentRepository
 from modules.students.schemas import StudentProfileCreate
 from modules.students.service import (
     StudentForbiddenError,
-    StudentNotVerifiedError,
     StudentService,
 )
 from modules.users.models import UserRecord
@@ -138,11 +137,11 @@ def test_get_student_profile_is_idempotent(client):
     assert first["user_id"] == second["user_id"]
 
 
-def test_get_student_profile_requires_verified_email(unverified_client):
+def test_get_student_profile_does_not_require_backend_email_verified_claim(unverified_client):
     response = unverified_client.get("/students/profile")
 
-    assert response.status_code == 403
-    assert "email" in response.json()["detail"].lower()
+    assert response.status_code == 200
+    assert response.json()["user_id"] == "betterauth-user-1"
 
 
 def test_get_student_profile_rejects_non_student_role(driver_client):
@@ -206,12 +205,11 @@ def test_ensure_profile_validates_role(db_session):
         service.ensure_profile(user)
 
 
-def test_ensure_profile_requires_verified_email(db_session):
+def test_ensure_profile_does_not_require_backend_email_verified_claim(db_session):
     service = StudentService(StudentRepository(db_session))
     user = make_student_user(email_verified=False)
 
-    with pytest.raises(StudentNotVerifiedError):
-        service.ensure_profile(user)
+    assert service.ensure_profile(user).user_id == user.id
 
 
 def test_ensure_profile_is_idempotent_under_race(db_session):

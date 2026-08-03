@@ -1,3 +1,4 @@
+import logging
 from datetime import date
 from typing import Protocol
 
@@ -9,6 +10,8 @@ from modules.drivers.repository import DriverRepository
 from modules.drivers.schemas import DriverAvailabilityUpdate, DriverOnboardingCreate
 from modules.vehicles.repository import VehicleRepository
 from modules.vehicles.service import VehicleNotApprovedError, VehicleService
+
+logger = logging.getLogger(__name__)
 
 
 class DriverAvailabilityPublisher(Protocol):
@@ -69,15 +72,56 @@ class DriverService:
     def complete_onboarding(
         self, user_id: str, payload: DriverOnboardingCreate
     ) -> Driver:
-        if self.repository.get_by_user_id(user_id):
+        existing = self.repository.get_by_user_id(user_id)
+        if existing and (existing.license_number or existing.license_expiry):
             raise DriverAlreadyExistsError("Driver profile already exists")
         if payload.license_expiry is not None and payload.license_expiry < date.today():
             raise DriverLicenseExpiredError("Driver license has expired")
+        data = payload.model_dump(exclude_unset=bool(existing))
+        data["verification_status"] = "pending"
         try:
-            return self.repository.create(user_id, payload.model_dump())
+            if existing:
+                logger.info(
+                    "Driver onboarding completed from pending profile: user_id=%s profile_id=%s",
+                    user_id,
+                    existing.id,
+                )
+                return self.repository.update(existing, data)
+            created = self.repository.create(user_id, data)
+            logger.info("Driver profile created by onboarding: user_id=%s profile_id=%s", user_id, created.id)
+            return created
         except IntegrityError as exc:
             self.repository.db.rollback()
             raise DriverConflictError("Driver profile could not be created") from exc
+
+    def ensure_profile(self, user_id: str, phone_number: str | None = None) -> Driver:
+        """Return an existing driver profile or create a pending one idempotently."""
+        driver = self.repository.get_by_user_id(user_id)
+        if driver is not None:
+            logger.info("Driver profile lookup succeeded: user_id=%s profile_id=%s", user_id, driver.id)
+            return driver
+        try:
+            created = self.repository.create(
+                user_id,
+                {
+                    "phone_number": phone_number,
+                    "verification_status": "pending",
+                },
+            )
+            logger.info("Driver profile auto-created: user_id=%s profile_id=%s", user_id, created.id)
+            return created
+        except IntegrityError:
+            self.repository.db.rollback()
+            driver = self.repository.get_by_user_id(user_id)
+            if driver is not None:
+                logger.info(
+                    "Driver profile race resolved by refetch: user_id=%s profile_id=%s",
+                    user_id,
+                    driver.id,
+                )
+                return driver
+            logger.exception("Driver profile auto-create failed: user_id=%s", user_id)
+            raise DriverConflictError("Driver profile could not be created") from None
 
     def get_profile(self, user_id: str) -> Driver:
         driver = self.repository.get_by_user_id(user_id)
